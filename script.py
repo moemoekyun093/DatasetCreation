@@ -10,6 +10,7 @@ from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+LOG_PATH = "table_scores.txt"
 
 warnings.filterwarnings("ignore")
 
@@ -166,8 +167,9 @@ Score from 0 to 10. Output ONLY a number.
 # MAIN LOOP
 # -----------------------------
 output_data = []
+log_file = open(LOG_PATH, "w", encoding="utf-8")
 
-for ex in tqdm(dataset):
+for ex_idx, ex in enumerate(tqdm(dataset)):
     question = ex["question"]
     answer = ex["answer"]
     pages = get_supporting_pages(ex)
@@ -191,8 +193,42 @@ for ex in tqdm(dataset):
         s = score_table(question, answer, table)
         scored.append((table, s))
 
+    # sort
     scored.sort(key=lambda x: -x[1])
 
+    # -----------------------------
+    # ✨ WRITE TO TXT FILE
+    # -----------------------------
+    log_file.write("\n" + "=" * 100 + "\n")
+    log_file.write(f"EXAMPLE {ex_idx}\n")
+    log_file.write("=" * 100 + "\n\n")
+
+    log_file.write(f"QUESTION:\n{question}\n\n")
+    log_file.write(f"ANSWER:\n{answer}\n\n")
+
+    log_file.write("-" * 100 + "\n")
+    log_file.write("TOP TABLES (with scores)\n")
+    log_file.write("-" * 100 + "\n\n")
+
+    # show top 5 tables
+    for i, (table, score) in enumerate(scored[:5]):
+        log_file.write(f"[RANK {i+1}] SCORE = {score}\n")
+        log_file.write("-" * 60 + "\n")
+
+        # truncate for readability
+        preview = table[:1000]
+        log_file.write(preview + "\n")
+
+        if len(table) > 1000:
+            log_file.write("... [TRUNCATED]\n")
+
+        log_file.write("\n" + "-" * 100 + "\n\n")
+
+    log_file.flush()
+
+    # -----------------------------
+    # dataset output (unchanged)
+    # -----------------------------
     output_data.append({
         "question": question,
         "hard_positive": scored[0][0],
@@ -200,7 +236,7 @@ for ex in tqdm(dataset):
         "negative": scored[-1][0],
         "scores": [s for _, s in scored[:5]]
     })
-
+log_file.close()
 # -----------------------------
 # SAVE
 # -----------------------------
