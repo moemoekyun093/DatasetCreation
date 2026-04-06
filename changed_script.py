@@ -218,6 +218,7 @@ for ex in tqdm(dataset):
     scored = []
 
     for table in tables_text:
+        print("\n\n" + "="*40)
         s = score_table(question, answer, table)
         scored.append((table, s))
 
