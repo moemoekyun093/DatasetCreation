@@ -28,6 +28,14 @@ llm = pipeline(
     device_map="auto"
 )
 
+if llm.tokenizer.pad_token_id is None:
+    llm.tokenizer.pad_token = llm.tokenizer.eos_token
+
+llm.model.config.pad_token_id = llm.tokenizer.pad_token_id
+llm.model.generation_config.pad_token_id = llm.tokenizer.pad_token_id
+llm.model.generation_config.do_sample = False
+llm.model.generation_config.max_length = 8
+
 # -----------------------------
 # LOAD DATA
 # -----------------------------
@@ -102,7 +110,7 @@ Is this table useful for answering the question?
 Output only 0, 1, or 2.
 """
 
-    out = llm(prompt, max_new_tokens=5, do_sample=False)[0]["generated_text"]
+    out = llm(prompt, return_full_text=False)[0]["generated_text"]
 
     if "2" in out:
         return 2

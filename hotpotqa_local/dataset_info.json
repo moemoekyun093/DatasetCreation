@@ -1,0 +1,101 @@
+{
+  "builder_name": "parquet",
+  "citation": "",
+  "config_name": "distractor",
+  "dataset_name": "hotpot_qa",
+  "dataset_size": 598694116,
+  "description": "",
+  "download_checksums": {
+    "hf://datasets/hotpot_qa@1908d6afbbead072334abe2965f91bd2709910ab/distractor/train-00000-of-00002.parquet": {
+      "num_bytes": 165624177,
+      "checksum": null
+    },
+    "hf://datasets/hotpot_qa@1908d6afbbead072334abe2965f91bd2709910ab/distractor/train-00001-of-00002.parquet": {
+      "num_bytes": 166162479,
+      "checksum": null
+    },
+    "hf://datasets/hotpot_qa@1908d6afbbead072334abe2965f91bd2709910ab/distractor/validation-00000-of-00001.parquet": {
+      "num_bytes": 27452575,
+      "checksum": null
+    }
+  },
+  "download_size": 359239231,
+  "features": {
+    "id": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "question": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "answer": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "type": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "level": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "supporting_facts": {
+      "feature": {
+        "title": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "sent_id": {
+          "dtype": "int32",
+          "_type": "Value"
+        }
+      },
+      "_type": "Sequence"
+    },
+    "context": {
+      "feature": {
+        "title": {
+          "dtype": "string",
+          "_type": "Value"
+        },
+        "sentences": {
+          "feature": {
+            "dtype": "string",
+            "_type": "Value"
+          },
+          "_type": "Sequence"
+        }
+      },
+      "_type": "Sequence"
+    }
+  },
+  "homepage": "",
+  "license": "",
+  "size_in_bytes": 957933347,
+  "splits": {
+    "train": {
+      "name": "train",
+      "num_bytes": 552975803,
+      "num_examples": 90447,
+      "shard_lengths": [
+        82224,
+        8223
+      ],
+      "dataset_name": "hotpot_qa"
+    },
+    "validation": {
+      "name": "validation",
+      "num_bytes": 45718313,
+      "num_examples": 7405,
+      "dataset_name": "hotpot_qa"
+    }
+  },
+  "version": {
+    "version_str": "0.0.0",
+    "major": 0,
+    "minor": 0,
+    "patch": 0
+  }
+}

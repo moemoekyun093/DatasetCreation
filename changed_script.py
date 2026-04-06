@@ -19,6 +19,7 @@ MIN_TABLES = 3
 # -----------------------------
 # LOAD LLM
 # -----------------------------
+print("loading mistral...")
 llm = pipeline(
     "text-generation",
     model="mistralai/Mistral-7B-Instruct-v0.2",
@@ -32,8 +33,7 @@ if llm.tokenizer.pad_token_id is None:
 llm.model.config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.do_sample = False
-llm.model.generation_config.max_new_tokens = 64
-llm.model.generation_config.max_length = None
+llm.model.generation_config.max_length = 64
 
 # -----------------------------
 # LOAD DATA
@@ -63,6 +63,12 @@ session.headers.update({
 # -----------------------------
 # HELPERS
 # -----------------------------
+import re
+
+def extract_score(text):
+    match = re.search(r"\b(10|[0-9])\b", text)
+    return int(match.group(1)) if match else 0
+
 def get_supporting_pages(ex):
     return list(set(ex["supporting_facts"]["title"]))
 
@@ -181,11 +187,7 @@ Output ONLY a number between 0 and 10.
 
     out = llm(prompt, return_full_text=False)[0]["generated_text"]
 
-    for token in out.split():
-        if token.isdigit():
-            return int(token)
-
-    return 0
+    return extract_score(out)
 
 
 # -----------------------------
