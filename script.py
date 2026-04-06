@@ -120,7 +120,7 @@ def get_supporting_pages(ex):
 def is_valid_table(table):
     classes = table.get("class", [])
 
-    blocked = ["navbox", "sidebar", "metadata"] #"infobox"
+    blocked = ["infobox","navbox", "sidebar", "metadata"] #"infobox"
 
     if any(any(b in c for b in blocked) for c in classes):
         return False
@@ -219,16 +219,6 @@ Answer: France
 Table:
 Country | Population
 France | 67 million
-
-Score:
-1
-
-Question: Who won the 1998 FIFA World Cup?
-Answer: France
-
-Table:
-Planet | Distance from Sun
-Mars | 227 million km
 
 Score:
 0
