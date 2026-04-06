@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 # CONFIG
 # -----------------------------
 OUTPUT_PATH = "table_retrieval_dataset.json"
-NUM_EXAMPLES = 100
+NUM_EXAMPLES = 10
 TIMEOUT = 5
 MIN_TABLES = 3
 
@@ -118,7 +118,7 @@ def get_supporting_pages(ex):
 def is_valid_table(table):
     classes = table.get("class", [])
 
-    blocked = ["infobox", "navbox", "sidebar", "metadata"]
+    blocked = ["navbox", "sidebar", "metadata"] #"infobox"
 
     if any(any(b in c for b in blocked) for c in classes):
         return False
