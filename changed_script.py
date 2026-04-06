@@ -33,7 +33,7 @@ if llm.tokenizer.pad_token_id is None:
 llm.model.config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.do_sample = False
-llm.model.generation_config.max_length = 64
+# llm.model.generation_config.max_length = 64
 
 # -----------------------------
 # LOAD DATA
@@ -185,7 +185,7 @@ Score how useful this table is for answering the question.
 Output ONLY a number between 0 and 10.
 """
 
-    out = llm(prompt, return_full_text=False)[0]["generated_text"]
+    out = llm(prompt, max_new_tokens=10, return_full_text=False)[0]["generated_text"]
 
     return extract_score(out)
 
