@@ -215,14 +215,17 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     pages = get_supporting_pages(ex)
 
     tables_text = []
+    pretty_tables = []
 
     for page in pages:
         tables = fetch_tables(page)
 
         for t in tables:
-            txt = table_to_pretty_text(t)
+            txt = table_to_text(t)
+            pretty_txt = table_to_pretty_text(t)
             if len(txt) > 50:
                 tables_text.append(txt)
+                pretty_tables.append(pretty_txt)
 
     if len(tables_text) < MIN_TABLES:
         continue
@@ -235,6 +238,10 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     # sort
     scored.sort(key=lambda x: -x[1])
+    indices = sorted(range(len(scored)), key=lambda i: -scored[i][1])
+
+    sorted_pretty_tables = [pretty_tables[i] for i in indices]
+
 
     # -----------------------------
     # ✨ WRITE TO TXT FILE
@@ -251,8 +258,8 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     log_file.write("-" * 100 + "\n\n")
 
     # show top 5 tables
-    for i, (table, score) in enumerate(scored[:5]):
-        log_file.write(f"[RANK {i+1}] SCORE = {score}\n")
+    for i, table in enumerate(sorted_pretty_tables[:5]):
+        log_file.write(f"[RANK {i+1}] SCORE = {scored[i][1]}\n")
         log_file.write("-" * 60 + "\n")
 
         # truncate for readability
