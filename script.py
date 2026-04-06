@@ -187,16 +187,160 @@ def generate(prompt):
 def score_table(question, answer, table_text):
     for max_chars in [800, 500, 300]:
         prompt = f"""
-Given are a question, an answer, and a table extracted from a Wikipedia page. 
-The table may contain information that is useful for answering the question.
+I’m going to give you a question, an answer, and a table extracted
+from a Wikipedia page. The table may contain information that is useful
+for answering the question.
 
-Score the table from 0 to 10, in terms of its relevance to the question and answer. Output ONLY a number.
-        
+Your task is to score how useful the table is.
+
+Score:
+0 = not useful (no relevant information)
+1 = somewhat useful (mentions related entities but insufficient)
+2 = highly useful (directly helps answer the question)
+
+Only output the score. Do not explain your answer.
+
+Let’s go through some examples together.
+
+------------------------------------------------------------
+
+Question: Who was the goalkeeper who blocked the most decorated English footballer player of all time?
+Answer: Jens Lehmann
+
+Table:
+GK | 1 | Jens Lehmann
+RB | 12 | Lauren
+CB | 28 | Kolo Touré
+CB | 20 | Philippe Senderos
+LB | 3 | Ashley Cole
+CM | 15 | Cesc Fàbregas
+
+Answer:
+2
+
+------------------------------------------------------------
+
+Question: Who was the goalkeeper who blocked the most decorated English footballer player of all time?
+Answer: Jens Lehmann
+
+Table:
+Club | Season | League | Apps | Goals
+Manchester United | 1998–99 | Premier League | 31 | 6
+Manchester United | 1999–00 | Premier League | 31 | 9
+Manchester United | 2000–01 | Premier League | 32 | 6
+
+Answer:
+1
+
+------------------------------------------------------------
+
+Question: Who was the goalkeeper who blocked the most decorated English footballer player of all time?
+Answer: Jens Lehmann
+
+Table:
+Statistic | Arsenal | Manchester United
+Shots on target | 1 | 8
+Fouls | 30 | 23
+Yellow cards | 3 | 1
+
+Answer:
+0
+
+------------------------------------------------------------
+
+Question: The 1976 German Grand Prix was won by a driver who retired in what year?
+Answer: 1979
+
+Table:
+Pos | Driver | Constructor | Time
+1 | James Hunt | McLaren-Ford | 1:41:42
+2 | Niki Lauda | Ferrari | +27.7
+3 | Jody Scheckter | Tyrrell-Ford | +52.4
+
+Answer:
+2
+
+------------------------------------------------------------
+
+Question: The 1976 German Grand Prix was won by a driver who retired in what year?
+Answer: 1979
+
+Table:
+Drivers' Championship standings
+Pos | Driver | Points
+1 | Niki Lauda | 58
+2 | James Hunt | 44
+3 | Jody Scheckter | 34
+
+Answer:
+1
+
+------------------------------------------------------------
+
+Question: The 1976 German Grand Prix was won by a driver who retired in what year?
+Answer: 1979
+
+Table:
+Season | Series | Team | Wins
+1970 | Formula Three | MRE | 0
+1971 | Formula Two | Hesketh | 0
+1972 | Formula Two | Hesketh | 0
+
+Answer:
+0
+
+------------------------------------------------------------
+
+Question: Chang Ucchin was born in Korea during a time that ended with the conclusion of what?
+Answer: World War II
+
+Table:
+Korea (1910–1945)
+Status | Colony of the Empire of Japan
+Historical era | Empire of Japan
+Annexation | 1910
+End | 1945
+
+Answer:
+2
+
+------------------------------------------------------------
+
+Question: Chang Ucchin was born in Korea during a time that ended with the conclusion of what?
+Answer: World War II
+
+Table:
+People's Republic of Korea | 1945
+Military governments | 1945–1948
+North-South division | 1945–present
+
+Answer:
+1
+
+------------------------------------------------------------
+
+Question: Chang Ucchin was born in Korea during a time that ended with the conclusion of what?
+Answer: World War II
+
+Table:
+Academic ability | Population
+University | 7,374
+Uneducated | 19,642,775
+
+Answer:
+0
+
+------------------------------------------------------------
+
+Now answer the following:
+
 Question: {question}
 Answer: {answer}
 
 Table:
 {table_text[:max_chars]}
+
+Answer:
 
 """
 
