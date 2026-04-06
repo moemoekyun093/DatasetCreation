@@ -1,0 +1,210 @@
+import json
+import os
+import requests
+import time
+import warnings
+import re
+from urllib.parse import quote
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+from datasets import load_dataset, load_from_disk
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+warnings.filterwarnings("ignore")
+
+# -----------------------------
+# CONFIG
+# -----------------------------
+OUTPUT_PATH = "table_retrieval_dataset.json"
+NUM_EXAMPLES = 10
+TIMEOUT = 5
+MIN_TABLES = 3
+
+# -----------------------------
+# LOAD SMALL LLM (1B)
+# -----------------------------
+print("loading TinyLlama (1B)...")
+
+model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+    device_map="auto"
+)
+
+model.eval()
+
+# -----------------------------
+# DATA
+# -----------------------------
+DATA_PATH = "hotpotqa_local"
+
+if os.path.exists(DATA_PATH):
+    dataset = load_from_disk(DATA_PATH)
+else:
+    dataset = load_dataset("hotpot_qa", "distractor", split="train[:1%]")
+    dataset.save_to_disk(DATA_PATH)
+
+dataset = dataset.shuffle().select(range(min(NUM_EXAMPLES, len(dataset))))
+
+# -----------------------------
+# NETWORK
+# -----------------------------
+page_cache = {}
+
+session = requests.Session()
+session.headers.update({
+    "User-Agent": "Mozilla/5.0"
+})
+
+# -----------------------------
+# HELPERS
+# -----------------------------
+def extract_score(text):
+    match = re.search(r"\b(10|[0-9])\b", text)
+    return int(match.group(1)) if match else 0
+
+
+def get_supporting_pages(ex):
+    return list(set(ex["supporting_facts"]["title"]))
+
+
+def is_valid_table(table):
+    classes = table.get("class", [])
+
+    blocked = ["infobox", "navbox", "sidebar", "metadata"]
+
+    if any(any(b in c for b in blocked) for c in classes):
+        return False
+
+    rows = table.find_all("tr")
+    cells = table.find_all(["td", "th"])
+
+    return len(rows) >= 3 and len(cells) >= 6
+
+
+def fetch_tables(page_title):
+    if page_title in page_cache:
+        return page_cache[page_title]
+
+    try:
+        url = f"https://en.wikipedia.org/wiki/{quote(page_title)}"
+        res = session.get(url, timeout=TIMEOUT)
+        soup = BeautifulSoup(res.text, "html.parser")
+
+        tables = [t for t in soup.find_all("table") if is_valid_table(t)]
+        page_cache[page_title] = tables
+        return tables
+
+    except:
+        return []
+
+
+def table_to_text(table):
+    rows = []
+    for tr in table.find_all("tr"):
+        cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
+        if cells:
+            rows.append(" | ".join(cells))
+    return "\n".join(rows)
+
+
+# -----------------------------
+# SAFE GENERATION
+# -----------------------------
+def generate(prompt):
+    inputs = tokenizer(
+        prompt,
+        return_tensors="pt",
+        truncation=True,
+        max_length=512   # VERY IMPORTANT
+    ).to(model.device)
+
+    try:
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=10,
+                do_sample=False,
+                pad_token_id=tokenizer.eos_token_id
+            )
+
+        text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return text
+
+    except torch.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        return None
+
+
+def score_table(question, answer, table_text):
+    for max_chars in [800, 500, 300]:
+        prompt = f"""
+Question: {question}
+Answer: {answer}
+
+Table:
+{table_text[:max_chars]}
+
+Score from 0 to 10. Output ONLY a number.
+"""
+
+        out = generate(prompt)
+
+        if out:
+            return extract_score(out)
+
+    return 0
+
+
+# -----------------------------
+# MAIN LOOP
+# -----------------------------
+output_data = []
+
+for ex in tqdm(dataset):
+    question = ex["question"]
+    answer = ex["answer"]
+    pages = get_supporting_pages(ex)
+
+    tables_text = []
+
+    for page in pages:
+        tables = fetch_tables(page)
+
+        for t in tables:
+            txt = table_to_text(t)
+            if len(txt) > 50:
+                tables_text.append(txt)
+
+    if len(tables_text) < MIN_TABLES:
+        continue
+
+    scored = []
+
+    for table in tables_text:
+        s = score_table(question, answer, table)
+        scored.append((table, s))
+
+    scored.sort(key=lambda x: -x[1])
+
+    output_data.append({
+        "question": question,
+        "hard_positive": scored[0][0],
+        "positive": scored[1][0] if len(scored) > 1 else scored[0][0],
+        "negative": scored[-1][0],
+        "scores": [s for _, s in scored[:5]]
+    })
+
+# -----------------------------
+# SAVE
+# -----------------------------
+with open(OUTPUT_PATH, "w") as f:
+    json.dump(output_data, f, indent=2)
+
+print(f"Saved {len(output_data)} examples")
