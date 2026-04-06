@@ -25,6 +25,16 @@ llm = pipeline(
     device_map="auto"
 )
 
+# Keep all generation settings in one place to avoid deprecation warnings.
+if llm.tokenizer.pad_token_id is None:
+    llm.tokenizer.pad_token = llm.tokenizer.eos_token
+
+llm.model.config.pad_token_id = llm.tokenizer.pad_token_id
+llm.model.generation_config.pad_token_id = llm.tokenizer.pad_token_id
+llm.model.generation_config.do_sample = False
+llm.model.generation_config.max_new_tokens = 64
+llm.model.generation_config.max_length = None
+
 # -----------------------------
 # LOAD DATA
 # -----------------------------
@@ -169,7 +179,7 @@ Score how useful this table is for answering the question.
 Output ONLY a number between 0 and 10.
 """
 
-    out = llm(prompt, do_sample=False)[0]["generated_text"]
+    out = llm(prompt, return_full_text=False)[0]["generated_text"]
 
     for token in out.split():
         if token.isdigit():
