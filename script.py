@@ -184,7 +184,7 @@ def generate(prompt):
 
 
 def score_table(question, answer, table_text):
-    for max_chars in [800, 500, 4000]:
+    for max_chars in [800, 500, 300]:
         prompt = f"""
 Given are a question, an answer, and a table extracted from a Wikipedia page. 
 The table may contain information that is useful for answering the question.
