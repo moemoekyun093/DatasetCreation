@@ -263,10 +263,10 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         log_file.write("-" * 60 + "\n")
 
         # truncate for readability
-        preview = table[:1000]
+        preview = table[:10000]
         log_file.write(preview + "\n")
 
-        if len(table) > 1000:
+        if len(table) > 10000:
             log_file.write("... [TRUNCATED]\n")
 
         log_file.write("\n" + "-" * 100 + "\n\n")
