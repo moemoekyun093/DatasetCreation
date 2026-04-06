@@ -66,6 +66,46 @@ session.headers.update({
 # -----------------------------
 # HELPERS
 # -----------------------------
+def table_to_pretty_text(table, max_col_width=40):
+    rows = []
+
+    for tr in table.find_all("tr"):
+        cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
+        if cells:
+            rows.append(cells)
+
+    if not rows:
+        return ""
+
+    # normalize row lengths
+    max_cols = max(len(r) for r in rows)
+    rows = [r + [""] * (max_cols - len(r)) for r in rows]
+
+    # truncate + compute column widths
+    def truncate(cell):
+        return cell[:max_col_width] + ("…" if len(cell) > max_col_width else "")
+
+    rows = [[truncate(cell) for cell in r] for r in rows]
+
+    col_widths = [
+        max(len(r[i]) for r in rows)
+        for i in range(max_cols)
+    ]
+
+    # build horizontal separator
+    sep = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+"
+
+    # build formatted table
+    lines = [sep]
+    for r in rows:
+        line = "| " + " | ".join(
+            r[i].ljust(col_widths[i]) for i in range(max_cols)
+        ) + " |"
+        lines.append(line)
+        lines.append(sep)
+
+    return "\n".join(lines)
+
 def extract_score(text):
     match = re.search(r"\b(10|[0-9])\b", text)
     return int(match.group(1)) if match else 0
@@ -180,7 +220,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         tables = fetch_tables(page)
 
         for t in tables:
-            txt = table_to_text(t)
+            txt = table_to_pretty_text(t)
             if len(txt) > 50:
                 tables_text.append(txt)
 
