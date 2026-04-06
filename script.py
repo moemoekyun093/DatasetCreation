@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 # CONFIG
 # -----------------------------
 OUTPUT_PATH = "table_retrieval_dataset.json"
-NUM_EXAMPLES = 10
+NUM_EXAMPLES = 100
 TIMEOUT = 5
 MIN_TABLES = 3
 
