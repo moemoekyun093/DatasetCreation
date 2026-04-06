@@ -1,13 +1,19 @@
 import json
 import os
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 import requests
 import time
+import warnings
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+from transformers import logging as hf_logging
+
+warnings.filterwarnings("ignore")
+hf_logging.set_verbosity_error()
 
 # -----------------------------
 # CONFIG
@@ -203,9 +209,16 @@ Score how useful this table is for answering the question.
 Output ONLY a number between 0 and 10.
 """
 
-    out = llm(prompt, return_full_text=False)[0]["generated_text"]
-
-    return extract_score(out)
+    try:
+        with torch.inference_mode():
+            out = llm(prompt, return_full_text=False)[0]["generated_text"]
+        return extract_score(out)
+    except torch.OutOfMemoryError:
+        print("CUDA OOM during inference. Returning score=0 for this table.")
+        return 0
+    finally:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 
 # -----------------------------
@@ -234,7 +247,7 @@ for ex in tqdm(dataset):
         continue
 
     scored = []
-
+    print("starting scoring")
     for table in tables_text:
         print("\n\n" + "="*40)
         s = score_table(question, answer, table)
