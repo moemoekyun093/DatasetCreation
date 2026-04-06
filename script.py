@@ -352,6 +352,7 @@ Answer:
         prompt_file.flush()
 
         out = generate(prompt)
+        print(f"LLM output: {out}")
 
         if out:
             return extract_score(out)
