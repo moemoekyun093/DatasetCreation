@@ -11,6 +11,7 @@ from datasets import load_dataset, load_from_disk
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 LOG_PATH = "table_scores.txt"
+PROMPT_PATH = "sample_prompts.txt"
 
 warnings.filterwarnings("ignore")
 
@@ -199,6 +200,13 @@ Table:
 
 """
 
+        prompt_file.write("\n" + "=" * 100 + "\n")
+        prompt_file.write(f"PROMPT (table_excerpt={max_chars})\n")
+        prompt_file.write("=" * 100 + "\n\n")
+        prompt_file.write(prompt)
+        prompt_file.write("\n" + "=" * 100 + "\n")
+        prompt_file.flush()
+
         out = generate(prompt)
 
         if out:
@@ -212,6 +220,7 @@ Table:
 # -----------------------------
 output_data = []
 log_file = open(LOG_PATH, "w", encoding="utf-8")
+prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
 
 for ex_idx, ex in enumerate(tqdm(dataset)):
     question = ex["question"]
@@ -288,6 +297,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         "scores": [s for _, s in scored[:5]]
     })
 log_file.close()
+prompt_file.close()
 # -----------------------------
 # SAVE
 # -----------------------------
