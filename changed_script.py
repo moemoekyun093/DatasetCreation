@@ -6,7 +6,8 @@ from urllib.parse import quote
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
-from transformers import pipeline
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 # -----------------------------
 # CONFIG
@@ -20,10 +21,26 @@ MIN_TABLES = 3
 # LOAD LLM
 # -----------------------------
 print("loading mistral...")
+model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+dtype = torch.float16 if device == "cuda" else torch.float32
+
+tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=False)
+tokenizer.pad_token_id = tokenizer.eos_token_id
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    output_attentions=True,
+    torch_dtype=dtype,
+    local_files_only=False,
+)
+model.to(device)
+model.eval()
+
 llm = pipeline(
     "text-generation",
-    model="mistralai/Mistral-7B-Instruct-v0.2",
-    device_map="auto"
+    model=model,
+    tokenizer=tokenizer
 )
 
 # Keep all generation settings in one place to avoid deprecation warnings.
@@ -33,7 +50,8 @@ if llm.tokenizer.pad_token_id is None:
 llm.model.config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.pad_token_id = llm.tokenizer.pad_token_id
 llm.model.generation_config.do_sample = False
-# llm.model.generation_config.max_length = 64
+llm.model.generation_config.max_new_tokens = 10
+llm.model.generation_config.max_length = None
 
 # -----------------------------
 # LOAD DATA
@@ -185,7 +203,7 @@ Score how useful this table is for answering the question.
 Output ONLY a number between 0 and 10.
 """
 
-    out = llm(prompt, max_new_tokens=10, return_full_text=False)[0]["generated_text"]
+    out = llm(prompt, return_full_text=False)[0]["generated_text"]
 
     return extract_score(out)
 
