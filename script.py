@@ -170,8 +170,6 @@ def generate(prompt):
 
     input_length = inputs["input_ids"].shape[1]
 
-    print("TOKEN COUNT:", input_length)
-
     try:
         with torch.no_grad():
             outputs = model.generate(
@@ -276,7 +274,6 @@ Score:
         prompt_file.flush()
 
         out = generate(prompt)
-        print(f"LLM output: {out}")
 
         if out:
             return extract_score(out)
