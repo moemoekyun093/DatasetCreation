@@ -165,10 +165,12 @@ def generate(prompt):
         prompt,
         return_tensors="pt",
         truncation=True,
-        max_length=512   # VERY IMPORTANT
+        max_length=1024   # VERY IMPORTANT
     ).to(model.device)
 
     input_length = inputs["input_ids"].shape[1]
+
+    print("TOKEN COUNT:", input_length)
 
     try:
         with torch.no_grad():
