@@ -261,7 +261,7 @@ Question: {question}
 Answer: {answer}
 
 Table:
-{table_text}
+{table_text[:max_chars]}
 
 Score:
 """
