@@ -168,6 +168,8 @@ def generate(prompt):
         max_length=512   # VERY IMPORTANT
     ).to(model.device)
 
+    input_length = inputs["input_ids"].shape[1]
+
     try:
         with torch.no_grad():
             outputs = model.generate(
@@ -176,9 +178,9 @@ def generate(prompt):
                 do_sample=False,
                 pad_token_id=tokenizer.eos_token_id
             )
-
-        text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        return text
+        generated_tokens = outputs[0][input_length:]
+        text = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        return text.strip()
 
     except torch.OutOfMemoryError:
         torch.cuda.empty_cache()
