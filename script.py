@@ -29,6 +29,7 @@ MIN_TABLES = 3
 print("loading TinyLlama (1B)...")
 
 model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+# model_name = "microsoft/phi-2"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -188,20 +189,17 @@ def score_table(question, answer, table_text):
     for max_chars in [800, 500, 300]:
         prompt = f"""
 I’m going to give you a question, an answer, and a table extracted
-from a Wikipedia page.
+from a Wikipedia page. I want you to determine how useful the table
+is for answering the question.
 
-Your task is to score how useful the table is.
+You should assign a score:
+0 = not useful (no relevant information)
+1 = somewhat useful (mentions related entities but does not directly answer)
+2 = highly useful (directly helps answer the question)
 
-Score:
-0 = not useful
-1 = somewhat useful
-2 = highly useful
+You should output ONLY the score as a single number.
 
-Only output ONE number (0, 1, or 2).
-
-Let’s go through some examples.
-
-------------------------------------------------------------
+Let’s go through some examples together.
 
 Question: Who won the 1998 FIFA World Cup?
 Answer: France
@@ -210,51 +208,60 @@ Table:
 Year | Winner
 1998 | France
 
-Answer:
+Score:
 2
-
-------------------------------------------------------------
 
 Question: Who won the 1998 FIFA World Cup?
 Answer: France
 
 Table:
 Country | Population
-France | 67M
+France | 67 million
 
-Answer:
+Score:
 1
-
-------------------------------------------------------------
 
 Question: Who won the 1998 FIFA World Cup?
 Answer: France
 
 Table:
-Planet | Distance
-Mars | 227M km
+Planet | Distance from Sun
+Mars | 227 million km
 
-Answer:
+Score:
 0
 
-------------------------------------------------------------
+Question: The 1976 German Grand Prix was won by a driver who retired in what year?
+Answer: 1979
 
-### END OF EXAMPLES ###
+Table:
+Pos | Driver | Constructor
+1 | James Hunt | McLaren-Ford
+2 | Niki Lauda | Ferrari
 
-Now answer the next question.
+Score:
+2
 
-IMPORTANT:
-- Output ONLY a single number
-- Do NOT repeat examples
-- Do NOT explain
+Question: The 1976 German Grand Prix was won by a driver who retired in what year?
+Answer: 1979
+
+Table:
+Drivers' Championship standings
+1 | Niki Lauda | 58
+2 | James Hunt | 44
+
+Score:
+1
+
+Once you have determined the score, output the score and stop.
 
 Question: {question}
 Answer: {answer}
 
 Table:
-{table_text[:max_chars]}
+{table_text}
 
-Final Score:
+Score:
 """
 
         prompt_file.write("\n" + "=" * 100 + "\n")
