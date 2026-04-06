@@ -22,6 +22,8 @@ OUTPUT_PATH = "table_retrieval_dataset.json"
 NUM_EXAMPLES = 10
 TIMEOUT = 5
 MIN_TABLES = 3
+MODEL_CACHE_DIR = os.path.abspath(".hf_cache")
+os.makedirs(MODEL_CACHE_DIR, exist_ok=True)
 
 # -----------------------------
 # LOAD LLM
@@ -30,16 +32,38 @@ print("loading mistral...")
 model_name = "mistralai/Mistral-7B-Instruct-v0.2"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 dtype = torch.float16 if device == "cuda" else torch.float32
+print(f"Model cache dir: {MODEL_CACHE_DIR}")
 
-tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=False)
+try:
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        cache_dir=MODEL_CACHE_DIR,
+        local_files_only=True,
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        output_attentions=True,
+        torch_dtype=dtype,
+        cache_dir=MODEL_CACHE_DIR,
+        local_files_only=True,
+    )
+    print("Loaded model from local Hugging Face cache.")
+except OSError:
+    print("Local cache miss. Downloading model/tokenizer once...")
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name,
+        cache_dir=MODEL_CACHE_DIR,
+        local_files_only=False,
+    )
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        output_attentions=True,
+        torch_dtype=dtype,
+        cache_dir=MODEL_CACHE_DIR,
+        local_files_only=False,
+    )
+
 tokenizer.pad_token_id = tokenizer.eos_token_id
-
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    output_attentions=True,
-    torch_dtype=dtype,
-    local_files_only=False,
-)
 model.to(device)
 model.eval()
 
@@ -212,14 +236,13 @@ Output ONLY a number between 0 and 10.
     try:
         with torch.inference_mode():
             out = llm(prompt, return_full_text=False)[0]["generated_text"]
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         return extract_score(out)
     except torch.OutOfMemoryError:
         print("CUDA OOM during inference. Returning score=0 for this table.")
         return 0
-    finally:
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
+        
 
 # -----------------------------
 # MAIN
