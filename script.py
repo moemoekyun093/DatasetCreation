@@ -50,7 +50,7 @@ DATA_PATH = "hotpotqa_local"
 if os.path.exists(DATA_PATH):
     dataset = load_from_disk(DATA_PATH)
 else:
-    dataset = load_dataset("hotpot_qa", "distractor", split="train[:1%]")
+    dataset = load_dataset("hotpot_qa", "distractor", split="train")
     dataset.save_to_disk(DATA_PATH)
 
 # dataset = dataset.shuffle().select(range(min(NUM_EXAMPLES, len(dataset))))
