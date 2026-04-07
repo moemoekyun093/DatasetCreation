@@ -72,7 +72,7 @@ def get_supporting_pages(ex):
 
 def is_valid_table(table):
     classes = table.get("class", [])
-    blocked = ["infobox", "navbox", "sidebar", "metadata"]
+    blocked = ["navbox", "sidebar", "metadata"] #infobox
 
     if any(any(b in c for b in blocked) for c in classes):
         return False
@@ -222,6 +222,8 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     # sort by score
     scored.sort(key=lambda x: -x["score"])
+    if scored[0]["score"] <= 0:
+        continue
 
     # -----------------------------
     # LOGGING
