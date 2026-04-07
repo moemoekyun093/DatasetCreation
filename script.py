@@ -192,7 +192,7 @@ def generate(prompt):
 def score_table(question, answer, table_text):
     for max_chars in [800, 500, 300]:
         prompt = f"""
-I’m going to give you a question, an answer, and a table extracted
+I’m going to give you a question and a table extracted
 from a Wikipedia page. I want you to determine how useful the table
 is for answering the question.
 
@@ -205,7 +205,6 @@ You should output ONLY the score as a single number.
 Let’s go through some examples together.
 
 Question: Who won the 1998 FIFA World Cup?
-Answer: France
 
 Table:
 Year | Winner
@@ -215,7 +214,6 @@ Score:
 1
 
 Question: Who won the 1998 FIFA World Cup?
-Answer: France
 
 Table:
 Country | Population
@@ -225,7 +223,6 @@ Score:
 0
 
 Question: The 1976 German Grand Prix was won by a driver who retired in what year?
-Answer: 1979
 
 Table:
 Pos | Driver | Constructor
@@ -236,7 +233,6 @@ Score:
 1
 
 Question: The 1976 German Grand Prix was won by a driver who retired in what year?
-Answer: 1979
 
 Table:
 Drivers' Championship standings
@@ -249,7 +245,6 @@ Score:
 Once you have determined the score, output the score and stop.
 
 Question: {question}
-Answer: {answer}
 
 Table:
 {table_text[:max_chars]}
