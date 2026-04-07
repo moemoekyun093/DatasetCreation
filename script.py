@@ -286,8 +286,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     answer = ex["answer"]
     pages = get_supporting_pages(ex)
 
-    tables_text = []
-    pretty_tables = []
+    table_records = []
 
     for page in pages:
         tables = fetch_tables(page)
@@ -296,23 +295,28 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
             txt = table_to_text(t)
             pretty_txt = table_to_pretty_text(t)
             if len(txt) > 50:
-                tables_text.append(txt)
-                pretty_tables.append(pretty_txt)
+                table_records.append({
+                    "text": txt,
+                    "pretty": pretty_txt,
+                    "page": page
+                })
 
-    if len(tables_text) < MIN_TABLES:
+    if len(table_records) < MIN_TABLES:
         continue
 
     scored = []
 
-    for table in tables_text:
-        s = score_table(question, answer, table)
-        scored.append((table, s))
+    for record in table_records:
+        s = score_table(question, answer, record["text"])
+        scored.append({
+            "text": record["text"],
+            "pretty": record["pretty"],
+            "page": record["page"],
+            "score": s
+        })
 
     # sort
-    scored.sort(key=lambda x: -x[1])
-    indices = sorted(range(len(scored)), key=lambda i: -scored[i][1])
-
-    sorted_pretty_tables = [pretty_tables[i] for i in indices]
+    scored.sort(key=lambda x: -x["score"])
 
 
     # -----------------------------
@@ -324,21 +328,26 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     log_file.write(f"QUESTION:\n{question}\n\n")
     log_file.write(f"ANSWER:\n{answer}\n\n")
+    log_file.write("SUPPORTING FACT TITLES:\n")
+    for title in pages:
+        log_file.write(f"- {title}\n")
+    log_file.write("\n")
 
     log_file.write("-" * 100 + "\n")
     log_file.write("TOP TABLES (with scores)\n")
     log_file.write("-" * 100 + "\n\n")
 
     # show top 5 tables
-    for i, table in enumerate(sorted_pretty_tables[:5]):
-        log_file.write(f"[RANK {i+1}] SCORE = {scored[i][1]}\n")
+    for i, item in enumerate(scored[:5]):
+        log_file.write(f"[RANK {i+1}] SCORE = {item['score']}\n")
+        log_file.write(f"PAGE = {item['page']}\n")
         log_file.write("-" * 60 + "\n")
 
         # truncate for readability
-        preview = table[:10000]
+        preview = item["pretty"][:10000]
         log_file.write(preview + "\n")
 
-        if len(table) > 10000:
+        if len(item["pretty"]) > 10000:
             log_file.write("... [TRUNCATED]\n")
 
         log_file.write("\n" + "-" * 100 + "\n\n")
@@ -350,10 +359,10 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     output_data.append({
         "question": question,
-        "hard_positive": scored[0][0],
-        "positive": scored[1][0] if len(scored) > 1 else scored[0][0],
-        "negative": scored[-1][0],
-        "scores": [s for _, s in scored[:5]]
+        "hard_positive": scored[0]["text"],
+        "positive": scored[1]["text"] if len(scored) > 1 else scored[0]["text"],
+        "negative": scored[-1]["text"],
+        "scores": [item["score"] for item in scored[:5]]
     })
 log_file.close()
 prompt_file.close()
