@@ -198,8 +198,7 @@ is for answering the question.
 
 You should assign a score:
 0 = not useful (no relevant information)
-1 = somewhat useful (mentions related entities but does not directly answer)
-2 = highly useful (directly helps answer the question)
+1 = highly useful (helps answer the question or helps bridge entities)
 
 You should output ONLY the score as a single number.
 
@@ -213,7 +212,7 @@ Year | Winner
 1998 | France
 
 Score:
-2
+1
 
 Question: Who won the 1998 FIFA World Cup?
 Answer: France
@@ -234,7 +233,7 @@ Pos | Driver | Constructor
 2 | Niki Lauda | Ferrari
 
 Score:
-2
+1
 
 Question: The 1976 German Grand Prix was won by a driver who retired in what year?
 Answer: 1979
