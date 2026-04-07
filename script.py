@@ -28,8 +28,8 @@ MIN_TABLES = 3
 # -----------------------------
 print("loading TinyLlama (1B)...")
 
-model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-# model_name = "microsoft/phi-2"
+# model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+model_name = "microsoft/phi-2"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -245,7 +245,7 @@ Drivers' Championship standings
 2 | James Hunt | 44
 
 Score:
-1
+0
 
 Once you have determined the score, output the score and stop.
 
