@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
 
-NUM_EXAMPLES = 1000
+NUM_EXAMPLES = 100
 TIMEOUT = 5
 MIN_TABLES = 3
 
@@ -222,7 +222,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     # sort by score
     scored.sort(key=lambda x: -x["score"])
-    if scored[0]["score"] <= 0:
+    if scored[0]["score"] <= -20:
         continue
 
     # -----------------------------
