@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
 
-NUM_EXAMPLES = 100
+NUM_EXAMPLES = 1000
 TIMEOUT = 5
 MIN_TABLES = 3
 
