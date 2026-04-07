@@ -19,7 +19,7 @@ warnings.filterwarnings("ignore")
 # CONFIG
 # -----------------------------
 OUTPUT_PATH = "table_retrieval_dataset.json"
-NUM_EXAMPLES = 100
+NUM_EXAMPLES = 10
 TIMEOUT = 5
 MIN_TABLES = 3
 
@@ -280,7 +280,8 @@ output_data = []
 log_file = open(LOG_PATH, "w", encoding="utf-8")
 prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
 
-for ex_idx, ex in enumerate(tqdm(dataset)):
+# for ex_idx, ex in enumerate(tqdm(dataset)):
+for ex_idx, ex in enumerate(tqdm(min(NUM_EXAMPLES, len(dataset)))):
     question = ex["question"]
     answer = ex["answer"]
     pages = get_supporting_pages(ex)
