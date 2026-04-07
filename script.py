@@ -192,17 +192,41 @@ def generate(prompt):
 def score_table(question, answer, table_text):
     for max_chars in [800, 500, 300]:
         prompt = f"""
-I’m going to give you a question and a table extracted
-from a Wikipedia page. I want you to determine how useful the table
-is for answering the question.
+I’m going to give you a question and a table.
 
-You should assign a score:
-0 = not useful (no relevant information)
-1 = highly useful (helps answer the question or helps bridge entities)
+Your task is to determine whether the table contains the information needed to answer the question.
 
-You should output ONLY the score as a single number.
+A table is useful ONLY if it contains the specific attributes required 
+(e.g., dates, values, comparisons), not just mentions of entities.
 
-Let’s go through some examples together.
+Score:
+0 = does NOT contain required information
+1 = partially contains relevant information
+2 = directly contains the needed information
+
+Only output the score.
+
+Examples:
+
+Question: Which tennis player is younger, Sun Tiantian or Anna Kournikova?
+
+Table:
+Player | Birth Date
+Anna Kournikova | 1981
+Sun Tiantian | 1982
+
+Score:
+2
+
+Question: Johnny English and the killer cleaner were in what installment of the Johnny English film series?
+
+Table:
+Awards | Year | Categories | Recipients | Results
+Phoenix Film Critics Society Awards | 2011 | Best Original Song | I Believe in You | Nominated
+Evening Standard British Film Awards | Blockbuster of the Year | Johnny English Reborn | Nominated
+
+Score:
+0
 
 Question: Who won the 1998 FIFA World Cup?
 
@@ -211,38 +235,9 @@ Year | Winner
 1998 | France
 
 Score:
-1
+2
 
-Question: Who won the 1998 FIFA World Cup?
-
-Table:
-Country | Population
-France | 67 million
-
-Score:
-0
-
-Question: The 1976 German Grand Prix was won by a driver who retired in what year?
-
-Table:
-Pos | Driver | Constructor
-1 | James Hunt | McLaren-Ford
-2 | Niki Lauda | Ferrari
-
-Score:
-1
-
-Question: The 1976 German Grand Prix was won by a driver who retired in what year?
-
-Table:
-Drivers' Championship standings
-1 | Niki Lauda | 58
-2 | James Hunt | 44
-
-Score:
-0
-
-Once you have determined the score, output the score and stop.
+Now answer:
 
 Question: {question}
 
