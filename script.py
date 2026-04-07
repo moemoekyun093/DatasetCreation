@@ -281,7 +281,7 @@ log_file = open(LOG_PATH, "w", encoding="utf-8")
 prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
 
 # for ex_idx, ex in enumerate(tqdm(dataset)):
-for ex_idx, ex in enumerate(tqdm(min(NUM_EXAMPLES, len(dataset)))):
+for ex_idx, ex in enumerate(tqdm(range(min(NUM_EXAMPLES, len(dataset))))):
     question = ex["question"]
     answer = ex["answer"]
     pages = get_supporting_pages(ex)
