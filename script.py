@@ -29,7 +29,7 @@ MIN_TABLES = 3
 print("loading TinyLlama (1B)...")
 
 # model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-model_name = "microsoft/phi-2"
+model_name = "google/gemma-2b"
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
