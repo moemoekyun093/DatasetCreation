@@ -443,6 +443,8 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     log_file.write("\n" + "=" * 100 + "\n")
     log_file.write(f"QUESTION:\n{question}\n\n")
+    log_file.write(f"ANSWER:\n{answer}\n\n")
+
 
     for i, item in enumerate(filtered):
         log_file.write(f"[RANK {i+1}] SCORE = {item['score']:.4f}\n")
