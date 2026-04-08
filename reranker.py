@@ -1,13 +1,13 @@
 import json
 import os
 import requests
-import time
 import warnings
 from urllib.parse import quote
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
 import torch
+import torch.nn.functional as F
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 warnings.filterwarnings("ignore")
@@ -22,11 +22,12 @@ RANKING_TXT_PATH = "table_rankings.txt"
 NUM_EXAMPLES = 5000
 TIMEOUT = 5
 MIN_TABLES = 3
+BATCH_SIZE = 16
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # -----------------------------
-# LOAD monoT5 RERANKER
+# LOAD monoT5
 # -----------------------------
 print("Loading monoT5 reranker...")
 
@@ -40,6 +41,9 @@ model = AutoModelForSeq2SeqLM.from_pretrained(
 )
 
 model.eval()
+
+true_id = tokenizer.convert_tokens_to_ids("true")
+false_id = tokenizer.convert_tokens_to_ids("false")
 
 # -----------------------------
 # DATA
@@ -60,9 +64,7 @@ dataset = dataset.shuffle().select(range(NUM_EXAMPLES))
 page_cache = {}
 
 session = requests.Session()
-session.headers.update({
-    "User-Agent": "Mozilla/5.0"
-})
+session.headers.update({"User-Agent": "Mozilla/5.0"})
 
 # -----------------------------
 # HELPERS
@@ -73,7 +75,7 @@ def get_supporting_pages(ex):
 
 def is_valid_table(table):
     classes = table.get("class", [])
-    blocked = ["navbox", "sidebar", "metadata"] #infobox
+    blocked = ["navbox", "sidebar", "metadata"]
 
     if any(any(b in c for b in blocked) for c in classes):
         return False
@@ -148,36 +150,45 @@ def table_to_pretty_text(table, max_col_width=40):
 
 
 # -----------------------------
-# monoT5 RERANKING FUNCTION
+# BATCHED monoT5 RERANKING
 # -----------------------------
-def rerank_score(question, table_text):
-    # truncate table (important)
-    table_text = table_text[:1000]
+def rerank_batch(question, table_texts):
+    scores = []
 
-    prompt = f"Query: {question} Document: {table_text} Relevant:"
+    for i in range(0, len(table_texts), BATCH_SIZE):
+        batch_tables = table_texts[i:i+BATCH_SIZE]
 
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-        truncation=True,
-        max_length=512
-    ).to(model.device)
+        inputs = [
+            f"Query: {question} Document: {t[:1000]} Relevant:"
+            for t in batch_tables
+        ]
 
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=1,
-            return_dict_in_generate=True,
-            output_scores=True
-        )
+        tokenized = tokenizer(
+            inputs,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=512
+        ).to(model.device)
 
-    logits = outputs.scores[0]  # logits for first generated token
+        with torch.no_grad():
+            outputs = model.generate(
+                **tokenized,
+                max_new_tokens=1,
+                return_dict_in_generate=True,
+                output_scores=True
+            )
 
-    true_id = tokenizer.convert_tokens_to_ids("true")
+        logits = outputs.scores[0]  # (batch, vocab)
+        log_probs = F.log_softmax(logits, dim=-1)
 
-    score = logits[0][true_id].item()
+        batch_scores = (
+            log_probs[:, true_id] - log_probs[:, false_id]
+        ).detach().cpu().tolist()
 
-    return score
+        scores.extend(batch_scores)
+
+    return scores
 
 
 # -----------------------------
@@ -211,10 +222,14 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     if len(table_records) < MIN_TABLES:
         continue
 
-    scored = []
+    # -----------------------------
+    # BATCH SCORING
+    # -----------------------------
+    table_texts = [r["text"] for r in table_records]
+    scores = rerank_batch(question, table_texts)
 
-    for record in table_records:
-        s = rerank_score(question, record["text"])
+    scored = []
+    for record, s in zip(table_records, scores):
         scored.append({
             "text": record["text"],
             "pretty": record["pretty"],
@@ -222,13 +237,14 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
             "score": s
         })
 
-    # sort by score
     scored.sort(key=lambda x: -x["score"])
+
+    # FILTER weak examples
     if scored[0]["score"] <= -20:
         continue
 
     # -----------------------------
-    # WRITE RANKING TEXT FILE
+    # RANKING FILE
     # -----------------------------
     ranking_file.write("\n" + "=" * 100 + "\n")
     ranking_file.write(f"EXAMPLE {ex_idx}\n")
@@ -251,6 +267,8 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     # LOGGING
     # -----------------------------
+    filtered = [item for item in scored if item["score"] >= -30]
+
     log_file.write("\n" + "=" * 100 + "\n")
     log_file.write(f"EXAMPLE {ex_idx}\n")
     log_file.write("=" * 100 + "\n\n")
@@ -263,24 +281,13 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         log_file.write(f"- {title}\n")
     log_file.write("\n")
 
-    log_file.write("-" * 100 + "\n")
-    log_file.write("TOP TABLES (monoT5 ranking)\n")
-    log_file.write("-" * 100 + "\n\n")
-
-    filtered = [item for item in scored if item["score"] >= -30]
-
     for i, item in enumerate(filtered):
         log_file.write(f"[RANK {i+1}] SCORE = {item['score']:.4f}\n")
         log_file.write(f"PAGE = {item['page']}\n")
         log_file.write("-" * 60 + "\n")
 
         preview = item["pretty"][:10000]
-        log_file.write(preview + "\n")
-
-        if len(item["pretty"]) > 10000:
-            log_file.write("... [TRUNCATED]\n")
-
-        log_file.write("\n" + "-" * 100 + "\n\n")
+        log_file.write(preview + "\n\n")
 
     log_file.flush()
 
@@ -296,6 +303,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     })
 
 log_file.close()
+ranking_file.close()
 
 # -----------------------------
 # SAVE
