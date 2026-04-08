@@ -120,15 +120,35 @@ reranker = MonoT5(batch_size=8)
 # -----------------------------
 # DATA
 # -----------------------------
-DATA_PATH = "hotpotqa_local"
+# DATA_PATH = "hotpotqa_local"
+
+# if os.path.exists(DATA_PATH):
+#     dataset = load_from_disk(DATA_PATH)
+# else:
+#     dataset = load_dataset("hotpot_qa", "distractor", split="train")
+#     dataset.save_to_disk(DATA_PATH)
+
+# dataset = dataset.shuffle().select(range(NUM_EXAMPLES))
+DATA_PATH = "hotpotqa_fullwiki_medium_bridge"
 
 if os.path.exists(DATA_PATH):
     dataset = load_from_disk(DATA_PATH)
 else:
-    dataset = load_dataset("hotpot_qa", "distractor", split="train")
+    dataset = load_dataset("hotpot_qa", "fullwiki", split="train")
+
+    # -----------------------------
+    # FILTER: medium + bridge
+    # -----------------------------
+    dataset = dataset.filter(
+        lambda x: x["level"] == "medium" and x["type"] == "bridge"
+    )
+
     dataset.save_to_disk(DATA_PATH)
 
-dataset = dataset.shuffle().select(range(NUM_EXAMPLES))
+# -----------------------------
+# NO SHUFFLING
+# -----------------------------
+dataset = dataset.select(range(min(NUM_EXAMPLES, len(dataset))))
 
 # -----------------------------
 # NETWORK
