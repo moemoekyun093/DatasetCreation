@@ -19,8 +19,9 @@ warnings.filterwarnings("ignore")
 LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
 RANKING_TXT_PATH = "table_rankings.txt"
+PROMPT_PATH = "prompts.txt"
 
-NUM_EXAMPLES = 500
+NUM_EXAMPLES = 50
 TIMEOUT = 5
 MIN_TABLES = 3
 
@@ -299,6 +300,20 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         "text": [r["text"] for r in table_records]
     })
 
+    prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
+
+    prompt_file.write("\n" + "=" * 100 + "\n")
+    prompt_file.write(f"EXAMPLE {ex_idx}\n")
+    prompt_file.write("=" * 100 + "\n\n")
+
+    for i, r in enumerate(table_records):
+        prompt = f"Query: {question} Document: {r['text']} Relevant:"
+        
+        prompt_file.write(f"[TABLE {i+1}]\n")
+        prompt_file.write(prompt[:2000] + "\n\n")  # truncate to avoid huge file
+
+    prompt_file.flush()
+
     df = reranker.transform(df)
 
     # attach back
@@ -327,7 +342,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     # LOG FILE
     # -----------------------------
-    filtered = [item for item in scored if item["score"] >= -30]
+    filtered = [item for item in scored if item["score"] >= -5]
 
     log_file.write("\n" + "=" * 100 + "\n")
     log_file.write(f"QUESTION:\n{question}\n\n")
