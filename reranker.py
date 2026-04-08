@@ -174,14 +174,63 @@ def fetch_tables(page_title):
         return []
 
 
+import re
+import json
+
+def clean_text(text):
+    text = re.sub(r'\[\d+\]', '', text)
+    text = text.replace('\xa0', ' ')
+    text = re.sub(r'(?<!\s)\(', ' (', text)
+    text = re.sub(r'\)(?!\s)', ') ', text)
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    text = re.sub(r'\s+', ' ', text)
+    return text.strip()
+
+
 def table_to_text(table):
     rows = []
-    for tr in table.find_all("tr"):
-        cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
-        if cells:
-            rows.append(" | ".join(cells))
-    return "\n".join(rows)
 
+    all_rows = []
+    for tr in table.find_all("tr"):
+        cells = [
+            clean_text(td.get_text(" ", strip=True))
+            for td in tr.find_all(["td", "th"])
+        ]
+        cells = [c for c in cells if c]
+        if cells:
+            all_rows.append(cells)
+
+    if not all_rows:
+        return ""
+
+    # -----------------------------
+    # CASE 1: header-based table
+    # -----------------------------
+    if len(all_rows) >= 2:
+        header = all_rows[0]
+        data_rows = all_rows[1:]
+
+        # check if header looks valid
+        if len(header) > 1 and all(len(h) > 0 for h in header):
+            for r in data_rows:
+                if len(r) != len(header):
+                    continue
+                row_dict = {header[i]: r[i] for i in range(len(header))}
+                rows.append(row_dict)
+
+            if rows:
+                return json.dumps(rows, ensure_ascii=False)
+
+    # -----------------------------
+    # CASE 2: key-value (infobox)
+    # -----------------------------
+    for r in all_rows:
+        if len(r) == 2:
+            rows.append({r[0]: r[1]})
+        else:
+            rows.append({"row": r})
+
+    return json.dumps(rows, ensure_ascii=False)
 
 def table_to_pretty_text(table, max_col_width=40):
     rows = []
