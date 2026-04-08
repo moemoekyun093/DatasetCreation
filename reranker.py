@@ -17,6 +17,7 @@ warnings.filterwarnings("ignore")
 # -----------------------------
 LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
+RANKING_TXT_PATH = "table_rankings.txt"
 
 NUM_EXAMPLES = 90000
 TIMEOUT = 5
@@ -184,6 +185,7 @@ def rerank_score(question, table_text):
 # -----------------------------
 output_data = []
 log_file = open(LOG_PATH, "w", encoding="utf-8")
+ranking_file = open(RANKING_TXT_PATH, "w", encoding="utf-8")
 
 for ex_idx, ex in enumerate(tqdm(dataset)):
     question = ex["question"]
@@ -224,6 +226,27 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     scored.sort(key=lambda x: -x["score"])
     if scored[0]["score"] <= -20:
         continue
+
+    # -----------------------------
+    # WRITE RANKING TEXT FILE
+    # -----------------------------
+    ranking_file.write("\n" + "=" * 100 + "\n")
+    ranking_file.write(f"EXAMPLE {ex_idx}\n")
+    ranking_file.write("=" * 100 + "\n\n")
+
+    ranking_file.write(f"QUESTION:\n{question}\n\n")
+
+    ranking_file.write("-" * 100 + "\n")
+    ranking_file.write("RANKED TABLES (monoT5 scores)\n")
+    ranking_file.write("-" * 100 + "\n\n")
+
+    for i, item in enumerate(scored):
+        ranking_file.write(
+            f"[RANK {i+1}] SCORE = {item['score']:.4f}   PAGE = {item['page']}\n"
+        )
+
+    ranking_file.write("\n" + "-" * 100 + "\n\n")
+    ranking_file.flush()
 
     # -----------------------------
     # LOGGING
