@@ -59,7 +59,7 @@ class MonoT5:
 
         it = range(0, len(queries), self.batch_size)
 
-        prompts = self.tokenizer.batch_encode_plus(
+        prompts = self.tokenizer(
             ['Relevant:' for _ in range(self.batch_size)],
             return_tensors='pt',
             padding='longest'
@@ -70,7 +70,7 @@ class MonoT5:
         for start_idx in it:
             rng = slice(start_idx, start_idx+self.batch_size)
 
-            enc = self.tokenizer.batch_encode_plus(
+            enc = self.tokenizer(
                 [f'Query: {q} Document: {d}' for q, d in zip(queries[rng], texts[rng])],
                 return_tensors='pt',
                 padding='longest',
