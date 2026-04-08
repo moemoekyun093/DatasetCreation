@@ -267,7 +267,9 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     log_file.write("TOP TABLES (monoT5 ranking)\n")
     log_file.write("-" * 100 + "\n\n")
 
-    for i, item in enumerate(scored[:5]):
+    filtered = [item for item in scored if item["score"] >= -30]
+
+    for i, item in enumerate(filtered):
         log_file.write(f"[RANK {i+1}] SCORE = {item['score']:.4f}\n")
         log_file.write(f"PAGE = {item['page']}\n")
         log_file.write("-" * 60 + "\n")
