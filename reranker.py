@@ -21,7 +21,7 @@ OUTPUT_PATH = "table_retrieval_dataset.json"
 RANKING_TXT_PATH = "table_rankings.txt"
 PROMPT_PATH = "prompts.txt"
 
-NUM_EXAMPLES = 50
+NUM_EXAMPLES = 500
 TIMEOUT = 5
 MIN_TABLES = 3
 
