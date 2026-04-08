@@ -18,7 +18,9 @@ warnings.filterwarnings("ignore")
 # -----------------------------
 LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
-RANKING_TXT_PATH = "tab
+RANKING_TXT_PATH = "table_rankings.txt"
+
+NUM_EXAMPLES = 500
 TIMEOUT = 5
 MIN_TABLES = 3
 
