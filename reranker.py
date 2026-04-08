@@ -159,7 +159,7 @@ def rerank_batch(question, table_texts):
         batch_tables = table_texts[i:i+BATCH_SIZE]
 
         inputs = [
-            f"Query: {question} Document: {t[:1000]} Relevant:"
+            f"Query: {question} Document: {t[:1800]} Relevant:"
             for t in batch_tables
         ]
 
@@ -168,7 +168,7 @@ def rerank_batch(question, table_texts):
             return_tensors="pt",
             padding=True,
             truncation=True,
-            max_length=512
+            max_length=1024
         ).to(model.device)
 
         with torch.no_grad():
