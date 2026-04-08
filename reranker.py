@@ -177,61 +177,155 @@ def fetch_tables(page_title):
 
 import re
 import json
+import re
 
 def clean_text(text):
+    # remove references like [1], [23]
     text = re.sub(r'\[\d+\]', '', text)
+
+    # normalize spaces
     text = text.replace('\xa0', ' ')
+    text = text.replace('·', ' ')
+
+    # fix parentheses spacing
     text = re.sub(r'(?<!\s)\(', ' (', text)
     text = re.sub(r'\)(?!\s)', ') ', text)
+
+    # split camel-case words (basic fix)
     text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+
+    # collapse multiple spaces
     text = re.sub(r'\s+', ' ', text)
+
     return text.strip()
 
+def table_to_rows(table):
+    grid = []
+    rowspan_map = {}
+
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+        row = []
+        col_idx = 0
+
+        # fill from previous rowspans
+        while col_idx in rowspan_map:
+            row.append(rowspan_map[col_idx]["value"])
+            rowspan_map[col_idx]["rows_left"] -= 1
+            if rowspan_map[col_idx]["rows_left"] == 0:
+                del rowspan_map[col_idx]
+            col_idx += 1
+
+        for cell in cells:
+            text = clean_text(cell.get_text(" ", strip=True))
+
+            rowspan = int(cell.get("rowspan", 1))
+            colspan = int(cell.get("colspan", 1))
+
+            for _ in range(colspan):
+                row.append(text)
+
+                if rowspan > 1:
+                    rowspan_map[col_idx] = {
+                        "value": text,
+                        "rows_left": rowspan - 1
+                    }
+
+                col_idx += 1
+
+        if any(row):
+            grid.append(row)
+
+    return grid
+
+def rows_to_sentences(rows):
+    sentences = []
+
+    header = rows[0]
+    data_rows = rows[1:]
+
+    for r in data_rows:
+        if len(r) != len(header):
+            continue
+
+        parts = []
+        for i in range(len(header)):
+            key = header[i].strip()
+            val = r[i].strip()
+
+            if key and val:
+                parts.append(f"{key} is {val}")
+
+        if parts:
+            sentences.append(". ".join(parts) + ".")
+
+    return " ".join(sentences)
 
 def table_to_text(table):
-    rows = []
+    rows = table_to_rows(table)
 
-    all_rows = []
-    for tr in table.find_all("tr"):
-        cells = [
-            clean_text(td.get_text(" ", strip=True))
-            for td in tr.find_all(["td", "th"])
-        ]
-        cells = [c for c in cells if c]
-        if cells:
-            all_rows.append(cells)
+    if not rows or len(rows) < 2:
+        return ""
 
-    if not all_rows:
+    header = rows[0]
+    data_rows = rows[1:]
+
+    structured = []
+
+    # -----------------------------
+    # CASE 1: VALID HEADER TABLE
+    # -----------------------------
+    if len(header) > 1 and all(h.strip() for h in header):
+        for r in data_rows:
+            if len(r) != len(header):
+                continue
+
+            row_dict = {
+                header[i]: r[i]
+                for i in range(len(header))
+                if r[i].strip()
+            }
+
+            if row_dict:
+                structured.append(row_dict)
+
+    # -----------------------------
+    # CASE 2: NO HEADER (fallback)
+    # -----------------------------
+    else:
+        for r in rows:
+            if len(r) == 2:
+                structured.append({r[0]: r[1]})
+            else:
+                structured.append(
+                    {f"column_{i}": r[i] for i in range(len(r))}
+                )
+
+    if not structured:
         return ""
 
     # -----------------------------
-    # CASE 1: header-based table
+    # JSON PART
     # -----------------------------
-    if len(all_rows) >= 2:
-        header = all_rows[0]
-        data_rows = all_rows[1:]
-
-        # check if header looks valid
-        if len(header) > 1 and all(len(h) > 0 for h in header):
-            for r in data_rows:
-                if len(r) != len(header):
-                    continue
-                row_dict = {header[i]: r[i] for i in range(len(header))}
-                rows.append(row_dict)
-
-            if rows:
-                return json.dumps(rows, ensure_ascii=False)
+    json_part = json.dumps(structured, ensure_ascii=False)
 
     # -----------------------------
-    # CASE 2: key-value (infobox)
+    # NATURAL LANGUAGE PART
     # -----------------------------
-    for r in all_rows:
-        if len(r) == 2:
-            rows.append({r[0]: r[1]})
-        else:
-            rows.append({"row": r})
+    if len(header) > 1 and all(h.strip() for h in header):
+        text_part = rows_to_sentences(rows)
+    else:
+        # fallback sentence generation
+        sentences = []
+        for row in structured:
+            parts = [f"{k} is {v}" for k, v in row.items()]
+            sentences.append(". ".join(parts) + ".")
+        text_part = " ".join(sentences)
 
-    return json.dumps(rows, ensure_ascii=False)
+    # -----------------------------
+    # FINAL REPRESENTATION
+    # -----------------------------
+    return f"Table:\n{json_part}\nSummary:\n{text_part}"
 
 def table_to_pretty_text(table, max_col_width=40):
     rows = []
@@ -267,6 +361,8 @@ def table_to_pretty_text(table, max_col_width=40):
 output_data = []
 log_file = open(LOG_PATH, "w", encoding="utf-8")
 ranking_file = open(RANKING_TXT_PATH, "w", encoding="utf-8")
+prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
+
 
 for ex_idx, ex in enumerate(tqdm(dataset)):
     question = ex["question"]
@@ -300,7 +396,6 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         "text": [r["text"] for r in table_records]
     })
 
-    prompt_file = open(PROMPT_PATH, "w", encoding="utf-8")
 
     prompt_file.write("\n" + "=" * 100 + "\n")
     prompt_file.write(f"EXAMPLE {ex_idx}\n")
