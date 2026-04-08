@@ -8,7 +8,8 @@ from tqdm import tqdm
 from datasets import load_dataset, load_from_disk
 import torch
 import torch.nn.functional as F
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import pandas as pd
+from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 warnings.filterwarnings("ignore")
 
@@ -22,28 +23,98 @@ RANKING_TXT_PATH = "table_rankings.txt"
 NUM_EXAMPLES = 5000
 TIMEOUT = 5
 MIN_TABLES = 3
-BATCH_SIZE = 16
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 # -----------------------------
-# LOAD monoT5
+# MONOT5 CLASS (UNCHANGED LOGIC)
 # -----------------------------
-print("Loading monoT5 reranker...")
+class MonoT5:
+    def __init__(self, 
+                 tok_model='t5-base',
+                 model='castorini/monot5-base-msmarco',
+                 batch_size=8,
+                 text_field='text',
+                 verbose=False):
 
-model_name = "castorini/monot5-base-msmarco"
+        self.verbose = verbose
+        self.batch_size = batch_size
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSeq2SeqLM.from_pretrained(
-    model_name,
-    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-    device_map="auto"
-)
+        self.tokenizer = T5Tokenizer.from_pretrained(tok_model)
+        self.model_name = model
+        self.model = T5ForConditionalGeneration.from_pretrained(model)
 
-model.eval()
+        self.model.to(self.device)
+        self.model.eval()
 
-true_id = tokenizer.convert_tokens_to_ids("true")
-false_id = tokenizer.convert_tokens_to_ids("false")
+        self.text_field = text_field
+
+        self.REL = self.tokenizer.encode('true')[0]
+        self.NREL = self.tokenizer.encode('false')[0]
+
+    def transform(self, run: pd.DataFrame):
+        scores = []
+        prob = []
+
+        queries, texts = run['query'], run[self.text_field]
+
+        it = range(0, len(queries), self.batch_size)
+
+        prompts = self.tokenizer.batch_encode_plus(
+            ['Relevant:' for _ in range(self.batch_size)],
+            return_tensors='pt',
+            padding='longest'
+        )
+
+        max_vlen = self.model.config.n_positions - prompts['input_ids'].shape[1]
+
+        for start_idx in it:
+            rng = slice(start_idx, start_idx+self.batch_size)
+
+            enc = self.tokenizer.batch_encode_plus(
+                [f'Query: {q} Document: {d}' for q, d in zip(queries[rng], texts[rng])],
+                return_tensors='pt',
+                padding='longest',
+                truncation=True
+            )
+
+            for key, enc_value in list(enc.items()):
+                enc_value = enc_value[:, :-1]
+                enc_value = enc_value[:, :max_vlen]
+
+                enc[key] = torch.cat(
+                    [enc_value, prompts[key][:enc_value.shape[0]]],
+                    dim=1
+                )
+
+            enc['decoder_input_ids'] = torch.full(
+                (len(queries[rng]), 1),
+                self.model.config.decoder_start_token_id,
+                dtype=torch.long
+            )
+
+            enc = {k: v.to(self.device) for k, v in enc.items()}
+
+            with torch.no_grad():
+                result = self.model(**enc).logits
+
+            result = result[:, 0, (self.REL, self.NREL)]
+
+            log_probs = F.log_softmax(result, dim=1)
+
+            scores_batch = log_probs[:, 0].cpu().tolist()
+            probs_batch = torch.exp(log_probs[:, 0]).cpu().tolist()
+
+            scores.extend(scores_batch)
+            prob.extend(probs_batch)
+
+        run = run.assign(score=scores, prob=prob)
+        return run
+
+
+# -----------------------------
+# LOAD MODEL
+# -----------------------------
+reranker = MonoT5(batch_size=8)
 
 # -----------------------------
 # DATA
@@ -114,7 +185,6 @@ def table_to_text(table):
 
 def table_to_pretty_text(table, max_col_width=40):
     rows = []
-
     for tr in table.find_all("tr"):
         cells = [td.get_text(strip=True) for td in tr.find_all(["td", "th"])]
         if cells:
@@ -126,15 +196,7 @@ def table_to_pretty_text(table, max_col_width=40):
     max_cols = max(len(r) for r in rows)
     rows = [r + [""] * (max_cols - len(r)) for r in rows]
 
-    def truncate(cell):
-        return cell[:max_col_width] + ("…" if len(cell) > max_col_width else "")
-
-    rows = [[truncate(cell) for cell in r] for r in rows]
-
-    col_widths = [
-        max(len(r[i]) for r in rows)
-        for i in range(max_cols)
-    ]
+    col_widths = [max(len(r[i]) for r in rows) for i in range(max_cols)]
 
     sep = "+" + "+".join("-" * (w + 2) for w in col_widths) + "+"
 
@@ -147,48 +209,6 @@ def table_to_pretty_text(table, max_col_width=40):
         lines.append(sep)
 
     return "\n".join(lines)
-
-
-# -----------------------------
-# BATCHED monoT5 RERANKING
-# -----------------------------
-def rerank_batch(question, table_texts):
-    scores = []
-
-    for i in range(0, len(table_texts), BATCH_SIZE):
-        batch_tables = table_texts[i:i+BATCH_SIZE]
-
-        inputs = [
-            f"Query: {question} Document: {t[:1800]} Relevant:"
-            for t in batch_tables
-        ]
-
-        tokenized = tokenizer(
-            inputs,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=1024
-        ).to(model.device)
-
-        with torch.no_grad():
-            outputs = model.generate(
-                **tokenized,
-                max_new_tokens=1,
-                return_dict_in_generate=True,
-                output_scores=True
-            )
-
-        logits = outputs.scores[0]  # (batch, vocab)
-        log_probs = F.log_softmax(logits, dim=-1)
-
-        batch_scores = (
-            log_probs[:, true_id] - log_probs[:, false_id]
-        ).detach().cpu().tolist()
-
-        scores.extend(batch_scores)
-
-    return scores
 
 
 # -----------------------------
@@ -223,23 +243,21 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
         continue
 
     # -----------------------------
-    # BATCH SCORING
+    # BUILD DATAFRAME FOR MONOT5
     # -----------------------------
-    table_texts = [r["text"] for r in table_records]
-    scores = rerank_batch(question, table_texts)
+    df = pd.DataFrame({
+        "query": [question] * len(table_records),
+        "text": [r["text"] for r in table_records]
+    })
 
-    scored = []
-    for record, s in zip(table_records, scores):
-        scored.append({
-            "text": record["text"],
-            "pretty": record["pretty"],
-            "page": record["page"],
-            "score": s
-        })
+    df = reranker.transform(df)
 
-    scored.sort(key=lambda x: -x["score"])
+    # attach back
+    for i, row in df.iterrows():
+        table_records[i]["score"] = row["score"]
 
-    # FILTER weak examples
+    scored = sorted(table_records, key=lambda x: -x["score"])
+
     if scored[0]["score"] <= -20:
         continue
 
@@ -247,47 +265,28 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # RANKING FILE
     # -----------------------------
     ranking_file.write("\n" + "=" * 100 + "\n")
-    ranking_file.write(f"EXAMPLE {ex_idx}\n")
-    ranking_file.write("=" * 100 + "\n\n")
-
+    ranking_file.write(f"EXAMPLE {ex_idx}\n\n")
     ranking_file.write(f"QUESTION:\n{question}\n\n")
-
-    ranking_file.write("-" * 100 + "\n")
-    ranking_file.write("RANKED TABLES (monoT5 scores)\n")
-    ranking_file.write("-" * 100 + "\n\n")
 
     for i, item in enumerate(scored):
         ranking_file.write(
-            f"[RANK {i+1}] SCORE = {item['score']:.4f}   PAGE = {item['page']}\n"
+            f"[RANK {i+1}] SCORE = {item['score']:.4f} PAGE = {item['page']}\n"
         )
 
-    ranking_file.write("\n" + "-" * 100 + "\n\n")
     ranking_file.flush()
 
     # -----------------------------
-    # LOGGING
+    # LOG FILE
     # -----------------------------
     filtered = [item for item in scored if item["score"] >= -30]
 
     log_file.write("\n" + "=" * 100 + "\n")
-    log_file.write(f"EXAMPLE {ex_idx}\n")
-    log_file.write("=" * 100 + "\n\n")
-
     log_file.write(f"QUESTION:\n{question}\n\n")
-    log_file.write(f"ANSWER:\n{answer}\n\n")
-
-    log_file.write("SUPPORTING FACT TITLES:\n")
-    for title in pages:
-        log_file.write(f"- {title}\n")
-    log_file.write("\n")
 
     for i, item in enumerate(filtered):
         log_file.write(f"[RANK {i+1}] SCORE = {item['score']:.4f}\n")
         log_file.write(f"PAGE = {item['page']}\n")
-        log_file.write("-" * 60 + "\n")
-
-        preview = item["pretty"][:10000]
-        log_file.write(preview + "\n\n")
+        log_file.write(item["pretty"][:10000] + "\n\n")
 
     log_file.flush()
 
@@ -305,9 +304,6 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 log_file.close()
 ranking_file.close()
 
-# -----------------------------
-# SAVE
-# -----------------------------
 with open(OUTPUT_PATH, "w") as f:
     json.dump(output_data, f, indent=2)
 
