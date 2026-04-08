@@ -325,7 +325,9 @@ def table_to_text(table):
     # -----------------------------
     # FINAL REPRESENTATION
     # -----------------------------
-    return f"Table:\n{json_part}\nSummary:\n{text_part}"
+    # return f"Table:\n{json_part}\nSummary:\n{text_part}"
+    return f"Table:\n{json_part}"
+
 
 def table_to_pretty_text(table, max_col_width=40):
     rows = []
