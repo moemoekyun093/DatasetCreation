@@ -19,7 +19,7 @@ LOG_PATH = "table_scores.txt"
 OUTPUT_PATH = "table_retrieval_dataset.json"
 RANKING_TXT_PATH = "table_rankings.txt"
 
-NUM_EXAMPLES = 90000
+NUM_EXAMPLES = 5000
 TIMEOUT = 5
 MIN_TABLES = 3
 
