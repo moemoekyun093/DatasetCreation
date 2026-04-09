@@ -452,7 +452,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     scored = sorted(table_records, key=lambda x: -x["score"])
 
-    if scored[0]["score"] <= -5:
+    if scored[0]["score"] <= -15:
         continue
 
     # -----------------------------
@@ -472,7 +472,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     # LOG FILE
     # -----------------------------
-    filtered = [item for item in scored if item["score"] >= -5]
+    filtered = [item for item in scored if item["score"] >= -15]
 
     log_file.write("\n" + "=" * 100 + "\n")
     log_file.write(f"QUESTION:\n{question}\n\n")
