@@ -56,7 +56,9 @@ class MonoT5:
         scores = []
         prob = []
 
-        queries, texts = run['query'], run[self.text_field]
+        queries = run['query']
+        texts = run[self.text_field]
+        contexts = run['context']
 
         it = range(0, len(queries), self.batch_size)
 
@@ -72,7 +74,10 @@ class MonoT5:
             rng = slice(start_idx, start_idx+self.batch_size)
 
             enc = self.tokenizer(
-                [f'Query: {q} Document: {d}' for q, d in zip(queries[rng], texts[rng])],
+                [
+                    f"Query: {q} Context: {c} Document: {d}"
+                    for q, c, d in zip(queries[rng], contexts[rng], texts[rng])
+                ],
                 return_tensors='pt',
                 padding='longest',
                 truncation=True
@@ -426,9 +431,12 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     # BUILD DATAFRAME FOR MONOT5
     # -----------------------------
+    support_titles = " | ".join(list(set(pages))[:3])
+
     df = pd.DataFrame({
         "query": [question] * len(table_records),
-        "text": [r["text"] for r in table_records]
+        "text": [r["text"] for r in table_records],
+        "context": [support_titles] * len(table_records)
     })
 
 
