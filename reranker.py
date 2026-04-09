@@ -408,6 +408,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     question = ex["question"]
     answer = ex["answer"]
     pages = get_supporting_pages(ex)
+    mycontext = ex["context"]
 
     table_records = []
 
@@ -431,7 +432,19 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     # -----------------------------
     # BUILD DATAFRAME FOR MONOT5
     # -----------------------------
-    support_titles = " | ".join(list(set(pages))[:3])
+    context_dict={}
+    for i  in range(len(ex["supporting_facts"]["title"])):
+        title=ex["supporting_facts"]["title"][i]
+        sent=ex["supporting_facts"]["sent_id"][i]
+        if title not in context_dict:
+            context_dict[title]=[]
+        idx = mycontext["title"].index(title)
+        context_dict[title].append(mycontext["sentences"][idx][sent])
+    
+    support_titles = "; ".join(
+        f"{title}: {' '.join(sents)}" for title, sents in context_dict.items()
+    )
+
 
     df = pd.DataFrame({
         "query": [question] * len(table_records),
@@ -444,7 +457,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     prompt_file.write(f"EXAMPLE {ex_idx}\n")
     prompt_file.write("=" * 100 + "\n\n")
 
-    for i, r in enumerate(table_records):
+    for i, r in enumerate(df.rows()):
         prompt = f"Query: {question}, Context: {r['context']}, Document: {r['text']} Relevant:"
         
         prompt_file.write(f"[TABLE {i+1}]\n")
