@@ -458,6 +458,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     prompt_file.write("=" * 100 + "\n\n")
 
     for i, r in enumerate(df.itertuples(index=False),start=1):
+        print(r)
         prompt = f"Query: {question}, Context: {r['context']}, Document: {r['text']} Relevant:"
         
         prompt_file.write(f"[TABLE {i+1}]\n")
