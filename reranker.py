@@ -439,7 +439,7 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
 
     scored = sorted(table_records, key=lambda x: -x["score"])
 
-    if scored[0]["score"] <= -20:
+    if scored[0]["score"] <= -5:
         continue
 
     # -----------------------------
