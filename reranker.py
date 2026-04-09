@@ -177,6 +177,19 @@ def is_valid_table(table):
 
     return len(rows) >= 3 and len(cells) >= 6
 
+def safe_int(value, default=1):
+    try:
+        if value is None:
+            return default
+
+        # remove non-digit characters
+        value = str(value)
+        value = re.sub(r"[^\d]", "", value)
+
+        return int(value) if value else default
+    except:
+        return default
+
 
 def fetch_tables(page_title):
     if page_title in page_cache:
@@ -239,8 +252,8 @@ def table_to_rows(table):
         for cell in cells:
             text = clean_text(cell.get_text(" ", strip=True))
 
-            rowspan = int(cell.get("rowspan", 1))
-            colspan = int(cell.get("colspan", 1))
+            rowspan = safe_int(cell.get("rowspan", 1))
+            colspan = safe_int(cell.get("colspan", 1))
 
             for _ in range(colspan):
                 row.append(text)
