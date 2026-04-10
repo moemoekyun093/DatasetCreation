@@ -12,6 +12,7 @@ import pandas as pd
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 
 warnings.filterwarnings("ignore")
+os.environ["HF_TOKEN"] = "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"
 
 # -----------------------------
 # CONFIG
