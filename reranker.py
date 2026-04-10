@@ -456,9 +456,15 @@ for ex_idx, ex in enumerate(tqdm(dataset)):
     prompt_file.write(f"EXAMPLE {ex_idx}\n")
     prompt_file.write("=" * 100 + "\n\n")
 
+
     for i, r in enumerate(df.itertuples(index=False),start=1):
-        prompt = f"Query: {question}, Context: {r.context}, Document: {r.text} Relevant:"
-        
+        prompt = f"""First, identify tables with relevant cells to 
+        the context and question. Note that some tables may mention some parts of the question and context, 
+        but have irrelevant information. Finally, decide which relevance of the table to answer the original question. 
+        Think step by step.
+        Query: {question}, Context: {r.context}, {r.text} Relevant:
+        """
+
         prompt_file.write(f"[TABLE {i+1}]\n")
         prompt_file.write(prompt[:2000] + "\n\n")  # truncate to avoid huge file
 
